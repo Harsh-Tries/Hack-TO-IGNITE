@@ -1,66 +1,68 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
+import { getServerProfile } from '@/lib/auth';
 import { hasPermission } from '@/lib/permissions';
 
 export async function createCollege(data: {
-  code: string;
   name: string;
-  address: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  contactName: string;
-  contactEmail: string;
-  contactPhone: string;
+  code: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
 }) {
-  const session = await getServerSession(authOptions);
-  const actor = session?.user as any;
+  const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+
+  if (isDemoMode) {
+    revalidatePath('/colleges');
+    return { success: true, collegeId: 'demo-college-' + Date.now() };
+  }
+
+  const actor = await getServerProfile();
 
   if (!actor || !hasPermission(actor.role, 'CREATE_COLLEGE')) {
-    return { success: false, error: 'Unauthorized: Permission denied to register examination centers.' };
+    return { success: false, error: 'Unauthorized: Permission denied to create colleges.' };
   }
 
   try {
-    const existingCode = await prisma.college.findUnique({ where: { code: data.code } });
-    if (existingCode) {
-      return { success: false, error: `College code "${data.code}" already exists.` };
-    }
+    const supabase = await createClient();
 
-    const college = await prisma.college.create({
-      data: {
-        code: data.code,
+    const { data: college, error } = await supabase
+      .from('colleges')
+      .insert({
         name: data.name,
+        code: data.code,
         address: data.address,
         city: data.city,
         state: data.state,
-        postalCode: data.postalCode,
-        contactName: data.contactName,
-        contactEmail: data.contactEmail,
-        contactPhone: data.contactPhone,
+        postal_code: data.postalCode,
+        contact_name: data.contactName,
+        contact_email: data.contactEmail,
+        contact_phone: data.contactPhone,
         status: 'ACTIVE',
-      },
-    });
+        created_by: actor.id,
+      })
+      .select('id')
+      .single();
 
-    await prisma.auditLog.create({
-      data: {
-        eventType: 'COLLEGE_CREATED',
-        entityType: 'College',
-        entityId: college.id,
-        actorId: actor.id,
-        actorEmail: actor.email,
-        actorRole: actor.role,
-        targetResource: college.name,
-        details: `Registered examination center ${college.name} (${college.code}) in ${college.city}.`,
-        result: 'GRANTED',
-      },
+    if (error || !college) {
+      throw new Error(error?.message || 'Failed to create college.');
+    }
+
+    await supabase.from('audit_logs').insert({
+      actor_id: actor.id,
+      event_type: 'COLLEGE_CREATED',
+      entity_type: 'College',
+      entity_id: college.id,
+      description: `Created college ${data.name} (${data.code})`,
     });
 
     revalidatePath('/colleges');
-    revalidatePath('/dashboard');
     return { success: true, collegeId: college.id };
   } catch (error: any) {
     return { success: false, error: error.message || 'Failed to create college.' };

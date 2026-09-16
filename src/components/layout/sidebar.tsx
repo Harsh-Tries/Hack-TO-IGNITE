@@ -1,115 +1,134 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import {
+  LayoutDashboard, GraduationCap, Building2, FileText, Link2,
+  Search, Users, ShieldCheck, AlertTriangle, Clock, Menu, X,
+  Shield, ChevronRight,
+} from 'lucide-react';
+import { useDemoSession } from '@/components/providers/demo-session-provider';
 import { getNavItemsForRole } from '@/lib/permissions';
 import { UserRole } from '@/types';
-import {
-  Shield,
-  Home,
-  LayoutDashboard,
-  GraduationCap,
-  FileText,
-  Building2,
-  QrCode,
-  Link as ChainIcon,
-  ShieldCheck,
-  AlertTriangle,
-  Users,
-  Clock,
-  ExternalLink,
-} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const ICON_MAP: Record<string, React.ElementType> = {
-  Home,
-  LayoutDashboard,
-  GraduationCap,
-  FileText,
-  Building2,
-  QrCode,
-  Link: ChainIcon,
-  ShieldCheck,
-  AlertTriangle,
-  Users,
-  Clock,
+  LayoutDashboard, GraduationCap, Building2, FileText, Link2,
+  Search, Users, ShieldCheck, AlertTriangle, Clock, Shield,
+};
+
+const ROLE_COLORS: Record<UserRole, string> = {
+  SUPER_ADMIN: 'bg-purple-100 text-purple-700 border-purple-200',
+  EXAM_ADMIN: 'bg-blue-100 text-blue-700 border-blue-200',
+  QUESTION_SETTER: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  COLLEGE_ADMIN: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  INVIGILATOR: 'bg-amber-100 text-amber-700 border-amber-200',
+  AUDITOR: 'bg-slate-100 text-slate-700 border-slate-200',
+  PENDING: 'bg-gray-100 text-gray-600 border-gray-200',
 };
 
 export function Sidebar() {
+  const { user, isLoading } = useDemoSession();
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  const userRole: UserRole = (session?.user as any)?.role || 'SUPER_ADMIN';
-  const navItems = getNavItemsForRole(userRole);
+  const role = (user?.role || 'PENDING') as UserRole;
+  const navItems = getNavItemsForRole(role);
+
+  const SidebarContent = () => (
+    <div className="flex flex-col h-full">
+      {/* Logo */}
+      <div className="h-16 flex items-center gap-3 px-5 border-b border-slate-200/80 shrink-0">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+          <Shield className="w-4.5 h-4.5 stroke-[2.5]" />
+        </div>
+        <div>
+          <span className="font-extrabold text-slate-900 text-base tracking-tight">
+            SECURE<span className="text-blue-600">EXAM</span>
+          </span>
+          <p className="text-[10px] text-slate-400 font-medium">Blockchain Platform</p>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-0.5">
+        {!isLoading && navItems.map((item) => {
+          const Icon = ICON_MAP[item.icon] || ShieldCheck;
+          const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setMobileOpen(false)}
+              className={cn(
+                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 group',
+                isActive
+                  ? 'bg-blue-50 text-blue-700 border border-blue-200/80'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+              )}
+            >
+              <Icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-blue-600' : 'text-slate-500 group-hover:text-slate-700')} />
+              <span className="tracking-wide">{item.title}</span>
+              {isActive && <ChevronRight className="w-3 h-3 ml-auto text-blue-500" />}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* User Footer */}
+      {user && (
+        <div className="px-4 py-4 border-t border-slate-200/80 shrink-0">
+          <div className="flex items-center gap-3">
+            {user.avatar_url ? (
+              <img src={user.avatar_url} alt={user.full_name || ''} className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-200" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs">
+                {(user.full_name || user.email)[0].toUpperCase()}
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-slate-900 truncate">{user.full_name || 'User'}</p>
+              <p className="text-[10px] text-slate-500 truncate">{user.email}</p>
+            </div>
+          </div>
+          <div className="mt-2">
+            <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full border', ROLE_COLORS[role])}>
+              {role.replace('_', ' ')}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
-    <aside className="w-64 bg-white border-r border-slate-200/80 flex flex-col justify-between shrink-0 min-h-screen sticky top-0 z-30 shadow-subtle">
-      {/* Top Header & Branding */}
-      <div>
-        <div className="p-5 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-            <Shield className="w-5 h-5 stroke-[2.5]" />
-          </div>
-          <div>
-            <h1 className="font-bold text-slate-900 text-base tracking-tight flex items-center gap-1">
-              SECURE<span className="text-blue-600">EXAM</span>
-            </h1>
-            <p className="text-[11px] text-slate-500 font-medium">
-              Blockchain • Encryption • Trust
-            </p>
-          </div>
-        </div>
+    <>
+      {/* Mobile toggle */}
+      <button
+        className="fixed top-4 left-4 z-50 lg:hidden bg-white border border-slate-200 rounded-xl p-2 shadow-sm"
+        onClick={() => setMobileOpen(!mobileOpen)}
+      >
+        {mobileOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+      </button>
 
-        {/* Navigation Section */}
-        <nav className="p-3 space-y-1">
-          <div className="px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-            Navigation ({userRole.replace('_', ' ')})
-          </div>
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 bg-black/30 lg:hidden" onClick={() => setMobileOpen(false)} />
+      )}
 
-          {navItems.map((item) => {
-            const IconComponent = ICON_MAP[item.icon] || FileText;
-            const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+      {/* Mobile drawer */}
+      <aside className={cn(
+        'fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-slate-200 shadow-xl transition-transform duration-300 lg:hidden',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full',
+      )}>
+        <SidebarContent />
+      </aside>
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
-                  isActive
-                    ? 'bg-blue-50 text-blue-700 font-bold border border-blue-200/60 shadow-sm'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <IconComponent className={`w-4 h-4 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
-                <span>{item.title}</span>
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-
-      {/* Bottom Branding & Verification Card */}
-      <div className="p-4 border-t border-slate-100 bg-slate-50/50">
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-3.5 rounded-xl text-xs space-y-2 shadow-sm border border-slate-700/50">
-          <div className="flex items-center justify-between text-blue-400 font-bold text-[11px] uppercase tracking-wider">
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              Secure Exam OS
-            </span>
-            <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-          </div>
-          <p className="text-slate-300 font-semibold leading-snug">
-            Secure. <br />
-            Transparent. <br />
-            Tamper-Proof.
-          </p>
-          <p className="text-[10px] text-slate-400 border-t border-slate-800 pt-2 flex items-center justify-between">
-            <span>Powered by Blockchain</span>
-            <ChainIcon className="w-3 h-3 text-purple-400" />
-          </p>
-        </div>
-      </div>
-    </aside>
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex flex-col w-64 shrink-0 bg-white border-r border-slate-200 h-screen sticky top-0">
+        <SidebarContent />
+      </aside>
+    </>
   );
 }

@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { SessionProvider } from '@/components/providers/session-provider';
 
 export const metadata: Metadata = {
   title: 'SECUREEXAM • Secure Examination Paper Distribution Using Blockchain',
@@ -15,7 +14,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased selection:bg-blue-100 selection:text-blue-900">
-        <SessionProvider>{children}</SessionProvider>
+        {children}
       </body>
     </html>
   );

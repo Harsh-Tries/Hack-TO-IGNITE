@@ -1,9 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
+import { getServerProfile } from '@/lib/auth';
 import { hasPermission } from '@/lib/permissions';
 
 export async function createExam(data: {
@@ -14,73 +13,83 @@ export async function createExam(data: {
   semester: string;
   department: string;
   subject: string;
-  examDate: string; // ISO date string
+  examDate: string;
   startTime: string;
   durationMinutes: number;
-  paperReleaseTime: string; // ISO date string
+  paperReleaseTime: string;
   collegeIds: string[];
 }) {
-  const session = await getServerSession(authOptions);
-  const actor = session?.user as any;
+  const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+
+  if (isDemoMode) {
+    // Demo mode: Return success for UI flow
+    revalidatePath('/exams');
+    revalidatePath('/dashboard');
+    return { success: true, examId: 'demo-exam-' + Date.now() };
+  }
+
+  const actor = await getServerProfile();
 
   if (!actor || !hasPermission(actor.role, 'CREATE_EXAM')) {
     return { success: false, error: 'Unauthorized: You do not have permission to create examinations.' };
   }
 
-  // Basic server-side validation
-  if (new Date(data.paperReleaseTime) > new Date(data.examDate)) {
-    return { success: false, error: 'Paper release time cannot be scheduled after the examination start date.' };
-  }
-
   try {
-    const existingCode = await prisma.exam.findUnique({ where: { examCode: data.examCode } });
+    const supabase = await createClient();
+
+    const { data: existingCode } = await supabase
+      .from('exams')
+      .select('id')
+      .eq('code', data.examCode)
+      .single();
+
     if (existingCode) {
-      return { success: false, error: `Exam code "${data.examCode}" is already in use. Please enter a unique code.` };
+      return { success: false, error: `Exam code "${data.examCode}" is already in use.` };
     }
 
-    const exam = await prisma.exam.create({
-      data: {
-        title: data.title,
-        examCode: data.examCode,
+    const { data: exam, error: createError } = await supabase
+      .from('exams')
+      .insert({
+        name: data.title,
+        code: data.examCode,
         description: data.description,
-        academicYear: data.academicYear,
+        academic_year: data.academicYear,
         semester: data.semester,
         department: data.department,
         subject: data.subject,
-        examDate: new Date(data.examDate),
-        startTime: data.startTime,
-        durationMinutes: data.durationMinutes,
-        paperReleaseTime: new Date(data.paperReleaseTime),
+        exam_date: data.examDate,
+        start_time: data.startTime,
+        duration_minutes: data.durationMinutes,
+        paper_release_time: data.paperReleaseTime || null,
         status: 'SCHEDULED',
-        createdById: actor.id,
-      },
-    });
+        created_by: actor.id,
+      })
+      .select('id')
+      .single();
 
-    // Assign centers
-    if (data.collegeIds && data.collegeIds.length > 0) {
-      await prisma.examCenterAssignment.createMany({
-        data: data.collegeIds.map((cId) => ({
-          examId: exam.id,
-          collegeId: cId,
-          assignedById: actor.id,
-          status: 'ASSIGNED',
-        })),
-      });
+    if (createError || !exam) {
+      throw new Error(createError?.message || 'Failed to create exam record');
     }
 
-    // Record Audit Log
-    await prisma.auditLog.create({
-      data: {
-        eventType: 'EXAM_CREATED',
-        entityType: 'Exam',
-        entityId: exam.id,
-        actorId: actor.id,
-        actorEmail: actor.email,
-        actorRole: actor.role,
-        targetResource: exam.examCode,
-        details: `Created examination "${exam.title}" scheduled for ${new Date(exam.examDate).toLocaleDateString()}.`,
-        result: 'GRANTED',
-      },
+    if (data.collegeIds && data.collegeIds.length > 0) {
+      const assignments = data.collegeIds.map((cId) => ({
+        exam_id: exam.id,
+        college_id: cId,
+        assigned_by: actor.id,
+        status: 'ASSIGNED',
+      }));
+
+      await supabase.from('exam_center_assignments').insert(assignments);
+    }
+
+    // Audit log
+    await supabase.from('audit_logs').insert({
+      actor_id: actor.id,
+      event_type: 'EXAM_CREATED',
+      entity_type: 'Exam',
+      entity_id: exam.id,
+      description: `Created examination "${data.title}" (${data.examCode})`,
+      metadata: { code: data.examCode, academicYear: data.academicYear },
     });
 
     revalidatePath('/exams');
@@ -92,40 +101,42 @@ export async function createExam(data: {
 }
 
 export async function assignCentersToExam(examId: string, collegeIds: string[]) {
-  const session = await getServerSession(authOptions);
-  const actor = session?.user as any;
+  const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+
+  if (isDemoMode) {
+    revalidatePath(`/exams/${examId}`);
+    revalidatePath('/exams');
+    return { success: true };
+  }
+
+  const actor = await getServerProfile();
 
   if (!actor || !hasPermission(actor.role, 'EDIT_EXAM')) {
     return { success: false, error: 'Unauthorized: Permission denied.' };
   }
 
   try {
-    // Clear old assignments and add new
-    await prisma.examCenterAssignment.deleteMany({ where: { examId } });
+    const supabase = await createClient();
+
+    await supabase.from('exam_center_assignments').delete().eq('exam_id', examId);
 
     if (collegeIds.length > 0) {
-      await prisma.examCenterAssignment.createMany({
-        data: collegeIds.map((cId) => ({
-          examId,
-          collegeId: cId,
-          assignedById: actor.id,
-          status: 'ASSIGNED',
-        })),
-      });
+      const assignments = collegeIds.map((cId) => ({
+        exam_id: examId,
+        college_id: cId,
+        assigned_by: actor.id,
+        status: 'ASSIGNED',
+      }));
+
+      await supabase.from('exam_center_assignments').insert(assignments);
     }
 
-    await prisma.auditLog.create({
-      data: {
-        eventType: 'EXAM_CENTER_ASSIGNED',
-        entityType: 'Exam',
-        entityId: examId,
-        actorId: actor.id,
-        actorEmail: actor.email,
-        actorRole: actor.role,
-        targetResource: examId,
-        details: `Assigned ${collegeIds.length} examination center(s) to exam ID ${examId}.`,
-        result: 'GRANTED',
-      },
+    await supabase.from('audit_logs').insert({
+      actor_id: actor.id,
+      event_type: 'EXAM_CENTER_ASSIGNED',
+      entity_type: 'Exam',
+      entity_id: examId,
+      description: `Assigned ${collegeIds.length} center(s) to exam ${examId}`,
     });
 
     revalidatePath(`/exams/${examId}`);

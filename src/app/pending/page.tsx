@@ -1,50 +1,32 @@
 'use client';
 
-import React from 'react';
-import { Clock, ShieldAlert, CheckCircle2, LogOut } from 'lucide-react';
-import { signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { Clock, ArrowLeft } from 'lucide-react';
 
 export default function PendingPage() {
+  const router = useRouter();
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-center items-center p-6 font-sans">
-      <div className="max-w-md w-full bg-white p-8 rounded-3xl border border-slate-200/80 shadow-glass text-center space-y-6">
-        <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto border border-amber-200">
-          <Clock className="w-7 h-7 stroke-[2.2] animate-pulse" />
+    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6">
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-glass p-10 max-w-md w-full text-center space-y-6">
+        <div className="w-20 h-20 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto">
+          <Clock className="w-10 h-10 text-amber-500" />
         </div>
-
         <div className="space-y-2">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100/80 text-amber-800 border border-amber-300">
-            Account Pending Approval
-          </span>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
-            Role Assignment Pending
-          </h2>
-          <p className="text-xs text-slate-600 leading-relaxed">
-            Your Google Account has been verified successfully. Your application access request is currently queued for administrator approval.
+          <h1 className="text-2xl font-extrabold text-slate-900">Account Pending Approval</h1>
+          <p className="text-sm text-slate-600 leading-relaxed">
+            Your account has been registered. A Super Administrator will review your account and assign you an appropriate role.
           </p>
         </div>
-
-        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-left text-xs space-y-2">
-          <div className="flex items-center justify-between font-semibold text-slate-700">
-            <span>Authentication Provider:</span>
-            <span className="text-emerald-600 flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Google OAuth
-            </span>
-          </div>
-          <div className="flex items-center justify-between font-semibold text-slate-700">
-            <span>Assigned Role:</span>
-            <span className="text-amber-700 font-mono bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-              PENDING
-            </span>
-          </div>
+        <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 text-left space-y-2">
+          <p className="text-xs font-bold text-amber-800">What happens next?</p>
+          <ul className="text-xs text-amber-700 space-y-1 list-disc list-inside">
+            <li>Super Admin reviews your Google account</li>
+            <li>An appropriate role will be assigned</li>
+            <li>You will be notified once your account is activated</li>
+          </ul>
         </div>
-
-        <button
-          onClick={() => signOut({ callbackUrl: '/login' })}
-          className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2"
-        >
-          <LogOut className="w-4 h-4" />
-          <span>Sign Out</span>
+        <button onClick={() => router.push('/login')} className="flex items-center gap-2 text-xs font-bold text-blue-600 hover:underline mx-auto">
+          <ArrowLeft className="w-4 h-4" /> Back to Login
         </button>
       </div>
     </div>

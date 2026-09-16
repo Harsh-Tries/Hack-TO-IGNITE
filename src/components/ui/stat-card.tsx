@@ -1,64 +1,50 @@
 'use client';
 
 import React from 'react';
-import { 
-  GraduationCap, 
-  FileText, 
-  Building2, 
-  Unlock, 
-  AlertTriangle, 
-  Link as ChainIcon, 
-  TrendingUp, 
-  TrendingDown 
+import {
+  Users, GraduationCap, Building2, ShieldCheck,
+  AlertTriangle, Lock, Link2, TrendingUp, TrendingDown, Minus,
 } from 'lucide-react';
-import { SecurityStat } from '@/types';
+import { cn } from '@/lib/utils';
 
 const ICON_MAP: Record<string, React.ElementType> = {
-  GraduationCap,
-  FileText,
-  Building2,
-  Unlock,
-  AlertTriangle,
-  Link: ChainIcon,
+  Users, GraduationCap, Building2, ShieldCheck, AlertTriangle, Lock, Link2,
 };
 
-export function StatCard({ title, value, change, trend = 'up', icon, isAlert = false }: SecurityStat) {
-  const Icon = ICON_MAP[icon] || FileText;
+interface StatCardProps {
+  title: string;
+  value: string | number;
+  change?: string;
+  trend?: 'up' | 'down' | 'neutral';
+  icon: string;
+  isAlert?: boolean;
+}
 
+export function StatCard({ title, value, change, trend = 'neutral', icon, isAlert }: StatCardProps) {
+  const Icon = ICON_MAP[icon] || ShieldCheck;
   return (
-    <div className={`p-5 rounded-2xl border transition-all duration-200 ${
-      isAlert 
-        ? 'bg-gradient-to-br from-rose-50/90 to-amber-50/50 border-rose-200/80 shadow-sm' 
-        : 'bg-white border-slate-200/80 shadow-subtle hover:border-blue-200 hover:shadow-card'
-    }`}>
-      <div className="flex items-center justify-between mb-3">
-        <span className={`text-xs font-bold uppercase tracking-wider ${isAlert ? 'text-rose-700' : 'text-slate-500'}`}>
-          {title}
-        </span>
-        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-          isAlert 
-            ? 'bg-rose-100 text-rose-600 border border-rose-200' 
-            : 'bg-blue-50 text-blue-600 border border-blue-100'
-        }`}>
-          <Icon className="w-4 h-4 stroke-[2.2]" />
-        </div>
+    <div className={cn(
+      'bg-white rounded-2xl p-5 border shadow-subtle flex items-start gap-4 transition hover:shadow-glass',
+      isAlert && Number(value) > 0 ? 'border-amber-300 bg-amber-50/30' : 'border-slate-200',
+    )}>
+      <div className={cn(
+        'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
+        isAlert && Number(value) > 0 ? 'bg-amber-100 text-amber-600' : 'bg-blue-50 text-blue-600',
+      )}>
+        <Icon className="w-5 h-5" />
       </div>
-
-      <div className="flex items-baseline justify-between mt-1">
-        <div className={`text-2xl font-extrabold tracking-tight ${isAlert ? 'text-rose-900' : 'text-slate-900'}`}>
-          {value}
-        </div>
-
+      <div className="flex-1 min-w-0">
+        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">{title}</p>
+        <p className="text-2xl font-extrabold text-slate-900 mt-0.5">{value}</p>
         {change && (
-          <div className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
-            isAlert 
-              ? 'bg-rose-100/80 text-rose-700' 
-              : trend === 'up' 
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' 
-                : 'bg-slate-100 text-slate-600'
-          }`}>
-            {trend === 'up' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-            <span>{change}</span>
+          <div className="flex items-center gap-1 mt-1">
+            {trend === 'up' && <TrendingUp className="w-3 h-3 text-emerald-500" />}
+            {trend === 'down' && <TrendingDown className="w-3 h-3 text-red-500" />}
+            {trend === 'neutral' && <Minus className="w-3 h-3 text-slate-400" />}
+            <span className={cn(
+              'text-[11px] font-semibold',
+              trend === 'up' ? 'text-emerald-600' : trend === 'down' ? 'text-red-500' : 'text-slate-500',
+            )}>{change}</span>
           </div>
         )}
       </div>

@@ -1,100 +1,94 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { getServerProfile } from '@/lib/auth';
 import { UserRole } from '@/types';
 
-export async function updateUserRole(targetUserId: string, newRole: UserRole) {
-  const session = await getServerSession(authOptions);
-  const actor = session?.user as any;
+export async function changeUserRole(userId: string, newRole: UserRole) {
+  const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
-  if (!actor || actor.role !== 'SUPER_ADMIN') {
-    return { success: false, error: 'Unauthorized: Only SUPER_ADMIN can modify user roles.' };
+  if (isDemoMode) {
+    revalidatePath('/admin/users');
+    return { success: true };
   }
 
-  if (actor.id === targetUserId) {
-    return { success: false, error: 'Forbidden: You cannot modify your own role.' };
+  const actor = await getServerProfile();
+
+  if (!actor || actor.role !== 'SUPER_ADMIN') {
+    return { success: false, error: 'Unauthorized: Only SUPER_ADMIN can change user roles.' };
   }
 
   try {
-    const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
-    if (!targetUser) return { success: false, error: 'User not found.' };
+    const admin = createAdminClient();
 
-    const oldRole = targetUser.role;
-
-    // Update role
-    const updatedUser = await prisma.user.update({
-      where: { id: targetUserId },
-      data: { 
+    const { error } = await admin
+      .from('profiles')
+      .update({
         role: newRole,
         status: newRole === 'PENDING' ? 'PENDING' : 'ACTIVE',
-      },
-    });
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
 
-    // Record Audit Log
-    await prisma.auditLog.create({
-      data: {
-        eventType: 'ROLE_CHANGED',
-        entityType: 'User',
-        entityId: targetUserId,
-        actorId: actor.id,
-        actorEmail: actor.email,
-        actorRole: actor.role,
-        targetResource: targetUser.name,
-        details: `Updated role for ${targetUser.name} (${targetUser.email}) from ${oldRole} to ${newRole}.`,
-        result: 'GRANTED',
-      },
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    await admin.from('audit_logs').insert({
+      actor_id: actor.id,
+      event_type: 'ROLE_CHANGED',
+      entity_type: 'Profile',
+      entity_id: userId,
+      description: `Changed user ${userId} role to ${newRole}`,
     });
 
     revalidatePath('/admin/users');
-    revalidatePath('/dashboard');
-    return { success: true, user: updatedUser };
+    return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || 'Failed to update user role.' };
   }
 }
 
-export async function updateUserStatus(targetUserId: string, newStatus: 'ACTIVE' | 'SUSPENDED') {
-  const session = await getServerSession(authOptions);
-  const actor = session?.user as any;
+export const updateUserRole = changeUserRole;
 
-  if (!actor || actor.role !== 'SUPER_ADMIN') {
-    return { success: false, error: 'Unauthorized: Only SUPER_ADMIN can modify user status.' };
+export async function updateUserStatus(userId: string, status: 'ACTIVE' | 'SUSPENDED') {
+  const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+
+  if (isDemoMode) {
+    revalidatePath('/admin/users');
+    return { success: true };
   }
 
-  if (actor.id === targetUserId) {
-    return { success: false, error: 'Forbidden: You cannot modify your own status.' };
+  const actor = await getServerProfile();
+
+  if (!actor || actor.role !== 'SUPER_ADMIN') {
+    return { success: false, error: 'Unauthorized: Only SUPER_ADMIN can change user status.' };
   }
 
   try {
-    const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
-    if (!targetUser) return { success: false, error: 'User not found.' };
+    const admin = createAdminClient();
 
-    const updatedUser = await prisma.user.update({
-      where: { id: targetUserId },
-      data: { status: newStatus },
-    });
+    const { error } = await admin
+      .from('profiles')
+      .update({
+        status,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
 
-    // Record Audit Log
-    await prisma.auditLog.create({
-      data: {
-        eventType: newStatus === 'SUSPENDED' ? 'USER_SUSPENDED' : 'USER_ACTIVATED',
-        entityType: 'User',
-        entityId: targetUserId,
-        actorId: actor.id,
-        actorEmail: actor.email,
-        actorRole: actor.role,
-        targetResource: targetUser.name,
-        details: `User ${targetUser.name} (${targetUser.email}) status set to ${newStatus}.`,
-        result: 'GRANTED',
-      },
+    if (error) throw new Error(error.message);
+
+    await admin.from('audit_logs').insert({
+      actor_id: actor.id,
+      event_type: status === 'ACTIVE' ? 'USER_ACTIVATED' : 'USER_SUSPENDED',
+      entity_type: 'Profile',
+      entity_id: userId,
+      description: `User ${userId} status changed to ${status}`,
     });
 
     revalidatePath('/admin/users');
-    revalidatePath('/dashboard');
-    return { success: true, user: updatedUser };
+    return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || 'Failed to update user status.' };
   }
