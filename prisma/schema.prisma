@@ -1,0 +1,177 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id               String    @id @default(uuid())
+  email            String    @unique
+  name             String
+  avatarUrl        String?
+  googleId         String?   @unique
+  isGoogleVerified Boolean   @default(true)
+  role             String    @default("PENDING")
+  collegeId        String?
+  college          College?  @relation(fields: [collegeId], references: [id])
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  examsCreated     Exam[]          @relation("ExamCreator")
+  papersUploaded   QuestionPaper[] @relation("PaperUploader")
+  paperAccesses    PaperAccess[]
+  auditLogs        AuditLog[]      @relation("AuditActor")
+}
+
+model College {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  name         String
+  address      String
+  contactEmail String
+  status       String   @default("ACTIVE")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users        User[]
+  assignments  ExamCenterAssignment[]
+  paperAccess  PaperAccess[]
+}
+
+model Exam {
+  id              String                @id @default(uuid())
+  examCode        String                @unique
+  title           String
+  academicYear    String
+  semester        String
+  department      String
+  subject         String
+  examDate        DateTime
+  startTime       String
+  durationMinutes Int
+  releaseTime     DateTime
+  status          String                @default("DRAFT")
+  createdById     String
+  createdBy       User                  @relation("ExamCreator", fields: [createdById], references: [id])
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  questionPapers  QuestionPaper[]
+  assignments     ExamCenterAssignment[]
+}
+
+model QuestionPaper {
+  id                String            @id @default(uuid())
+  paperCode         String            @unique
+  examId            String
+  exam              Exam              @relation(fields: [examId], references: [id])
+  subject           String
+  originalFilename  String
+  encryptedFilePath String?
+  sha256Hash        String
+  releaseTime       DateTime
+  status            String            @default("DRAFT")
+  uploaderId        String
+  uploader          User              @relation("PaperUploader", fields: [uploaderId], references: [id])
+  isRevoked         Boolean           @default(false)
+  revocationReason  String?
+  revokedAt         DateTime?
+  revokedById       String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  blockchainRecord  BlockchainRecord?
+  accessLogs        PaperAccess[]
+  signatures        DigitalSignature[]
+}
+
+model ExamCenterAssignment {
+  id         String   @id @default(uuid())
+  examId     String
+  exam       Exam     @relation(fields: [examId], references: [id])
+  collegeId  String
+  college    College  @relation(fields: [collegeId], references: [id])
+  assignedAt DateTime @default(now())
+  status     String   @default("ASSIGNED")
+
+  @@unique([examId, collegeId])
+}
+
+model AuditLog {
+  id             String    @id @default(uuid())
+  eventType      String
+  actorId        String?
+  actor          User?     @relation("AuditActor", fields: [actorId], references: [id])
+  actorEmail     String
+  actorRole      String
+  targetResource String
+  details        String
+  ipAddress      String    @default("127.0.0.1")
+  result         String?
+  createdAt      DateTime  @default(now())
+}
+
+model SecurityAlert {
+  id          String    @id @default(uuid())
+  alertType   String
+  severity    String    @default("MEDIUM")
+  title       String
+  description String
+  actorEmail  String
+  paperId     String?
+  examId      String?
+  status      String    @default("OPEN")
+  createdAt   DateTime  @default(now())
+  resolvedAt  DateTime?
+}
+
+model BlockchainRecord {
+  id            String        @id @default(uuid())
+  paperId       String        @unique
+  paper         QuestionPaper @relation(fields: [paperId], references: [id])
+  paperCode     String
+  examId        String
+  sha256Hash    String
+  issuerAddress String
+  txHash        String
+  blockNumber   Int
+  status        String        @default("CONFIRMED")
+  timestamp     DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+}
+
+model PaperAccess {
+  id         String        @id @default(uuid())
+  paperId    String
+  paper      QuestionPaper @relation(fields: [paperId], references: [id])
+  userId     String
+  user       User          @relation(fields: [userId], references: [id])
+  userRole   String
+  collegeId  String?
+  college    College?      @relation(fields: [collegeId], references: [id])
+  accessTime DateTime      @default(now())
+  result     String
+  ipAddress  String        @default("127.0.0.1")
+}
+
+model DigitalSignature {
+  id            String        @id @default(uuid())
+  paperId       String
+  paper         QuestionPaper @relation(fields: [paperId], references: [id])
+  signerId      String
+  signatureHash String
+  timestamp     DateTime      @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  type      String   @default("INFO")
+  createdAt DateTime @default(now())
+}
