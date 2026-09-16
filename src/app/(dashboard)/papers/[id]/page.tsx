@@ -2,12 +2,12 @@ import React from 'react';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { redirect } from 'next/navigation';
+import { redirect, notFound } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
-import { PapersClientView } from '@/components/papers/papers-client-view';
+import { PaperDetailsClient } from '@/components/papers/paper-details-client';
 
-export default async function QuestionPapersPage() {
+export default async function PaperDetailsPage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   const user = session?.user as any;
 
@@ -15,29 +15,22 @@ export default async function QuestionPapersPage() {
     redirect('/pending');
   }
 
-  // Scoping: question setters see uploaded papers, college admins/invigilators see assigned papers, admins see all
-  let paperWhere: any = {};
-  if (user.role === 'QUESTION_SETTER') {
-    paperWhere = { uploaderId: user.id };
-  } else if ((user.role === 'COLLEGE_ADMIN' || user.role === 'INVIGILATOR') && user.collegeId) {
-    paperWhere = {
+  const paper = await prisma.questionPaper.findUnique({
+    where: { id: params.id },
+    include: {
       exam: {
-        assignments: {
-          some: { collegeId: user.collegeId },
+        include: {
+          assignments: { include: { college: true } },
         },
       },
-    };
-  }
-
-  const papers = await prisma.questionPaper.findMany({
-    where: paperWhere,
-    include: {
-      exam: true,
       uploader: true,
       blockchainRecord: true,
     },
-    orderBy: { createdAt: 'desc' },
   });
+
+  if (!paper) {
+    notFound();
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex font-sans">
@@ -47,7 +40,7 @@ export default async function QuestionPapersPage() {
         <Topbar />
 
         <main className="flex-1 p-6 md:p-8 space-y-6 overflow-y-auto">
-          <PapersClientView papers={papers} userRole={user.role} />
+          <PaperDetailsClient paper={paper} userRole={user.role} />
         </main>
       </div>
     </div>

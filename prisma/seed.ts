@@ -3,9 +3,11 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Seeding SECUREEXAM database with Phase 1-3 demo data...');
+  console.log('🌱 Seeding SECUREEXAM database with Phase 1-5 demo data...');
 
   // Clear existing
+  await prisma.blockchainRecord.deleteMany({});
+  await prisma.questionPaper.deleteMany({});
   await prisma.auditLog.deleteMany({});
   await prisma.examCenterAssignment.deleteMany({});
   await prisma.exam.deleteMany({});
@@ -238,48 +240,94 @@ async function main() {
     ],
   });
 
-  // 5. Seed Audit Logs
+  // 5. Seed Question Papers (Phase 4)
+  const paper1 = await prisma.questionPaper.create({
+    data: {
+      paperCode: 'QP-DSA-2026-001',
+      examId: exam1.id,
+      subject: 'Data Structures & Algorithms',
+      originalFilename: 'DSA_Final_Exam_2026_Official.pdf',
+      encryptedFilePath: 'storage/encrypted_papers/qp-dsa-2026-001.enc',
+      sha256Hash: '8a7f9b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcd',
+      releaseTime: exam1.paperReleaseTime,
+      status: 'REGISTERED',
+      uploaderId: setter1.id,
+    },
+  });
+
+  const paper2 = await prisma.questionPaper.create({
+    data: {
+      paperCode: 'QP-MAT-2026-002',
+      examId: exam2.id,
+      subject: 'Engineering Mathematics III',
+      originalFilename: 'Engg_Maths_III_Final.pdf',
+      encryptedFilePath: 'storage/encrypted_papers/qp-mat-2026-002.enc',
+      sha256Hash: '4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a',
+      releaseTime: exam2.paperReleaseTime,
+      status: 'REGISTERED',
+      uploaderId: setter1.id,
+    },
+  });
+
+  // 6. Seed Blockchain Records (Phase 5)
+  await prisma.blockchainRecord.createMany({
+    data: [
+      {
+        paperId: paper1.id,
+        paperCode: paper1.paperCode,
+        examId: exam1.id,
+        sha256Hash: paper1.sha256Hash,
+        issuerAddress: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+        txHash: '0x7a3f9c2e01b44d88e42f9a77c3580d19c02e5b7a8d43ef119c32a10b45fe9812',
+        blockNumber: 12843,
+        status: 'CONFIRMED',
+      },
+      {
+        paperId: paper2.id,
+        paperCode: paper2.paperCode,
+        examId: exam2.id,
+        sha256Hash: paper2.sha256Hash,
+        issuerAddress: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+        txHash: '0x3c2a10b45fe98127a3f9c2e01b44d88e42f9a77c3580d19c02e5b7a8d43ef119',
+        blockNumber: 12844,
+        status: 'CONFIRMED',
+      },
+    ],
+  });
+
+  // 7. Seed Audit Logs
   await prisma.auditLog.createMany({
     data: [
       {
-        eventType: 'LOGIN',
-        actorId: superAdmin.id,
-        actorEmail: superAdmin.email,
-        actorRole: 'SUPER_ADMIN',
-        targetResource: 'System Auth',
-        details: 'User Harsh Wagh authenticated successfully via Google OAuth.',
+        eventType: 'PAPER_UPLOADED',
+        entityType: 'QuestionPaper',
+        entityId: paper1.id,
+        actorId: setter1.id,
+        actorEmail: setter1.email,
+        actorRole: 'QUESTION_SETTER',
+        targetResource: paper1.paperCode,
+        details: `Question paper ${paper1.originalFilename} uploaded and validated.`,
         result: 'GRANTED',
       },
       {
-        eventType: 'EXAM_CREATED',
-        entityType: 'Exam',
-        entityId: exam1.id,
-        actorId: examAdmin.id,
-        actorEmail: examAdmin.email,
-        actorRole: 'EXAM_ADMIN',
-        targetResource: 'DSA-2026-001',
-        details: 'Created examination Data Structures & Algorithms Final.',
+        eventType: 'PAPER_ENCRYPTED',
+        entityType: 'QuestionPaper',
+        entityId: paper1.id,
+        actorId: setter1.id,
+        actorEmail: setter1.email,
+        actorRole: 'QUESTION_SETTER',
+        targetResource: paper1.paperCode,
+        details: `AES-256-GCM symmetric cipher encryption completed.`,
         result: 'GRANTED',
       },
       {
-        eventType: 'EXAM_CENTER_ASSIGNED',
-        entityType: 'ExamCenterAssignment',
-        actorId: examAdmin.id,
-        actorEmail: examAdmin.email,
-        actorRole: 'EXAM_ADMIN',
-        targetResource: 'PICT Center',
-        details: 'Assigned examination DSA-2026-001 to Pune Institute of Computer Technology.',
-        result: 'GRANTED',
-      },
-      {
-        eventType: 'ROLE_CHANGED',
-        entityType: 'User',
-        entityId: setter1.id,
-        actorId: superAdmin.id,
-        actorEmail: superAdmin.email,
-        actorRole: 'SUPER_ADMIN',
-        targetResource: 'Dr. Ananya Sharma',
-        details: 'Role updated from PENDING to QUESTION_SETTER.',
+        eventType: 'PAPER_REGISTERED',
+        entityType: 'BlockchainRecord',
+        actorId: setter1.id,
+        actorEmail: setter1.email,
+        actorRole: 'QUESTION_SETTER',
+        targetResource: paper1.paperCode,
+        details: `SHA-256 hash registered on Hardhat smart contract in Block #12843.`,
         result: 'GRANTED',
       },
     ],
