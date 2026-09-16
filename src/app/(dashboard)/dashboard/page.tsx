@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Shield, ShieldCheck, Calendar, ChevronRight, Lock, Link2, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Shield, ShieldCheck, Calendar, ChevronRight, Lock, CheckCircle2 } from 'lucide-react';
 import { StatCard } from '@/components/ui/stat-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { useDemoSession } from '@/components/providers/demo-session-provider';
