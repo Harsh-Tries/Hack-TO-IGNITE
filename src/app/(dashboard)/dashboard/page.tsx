@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Shield, ShieldCheck, Calendar, ChevronRight, Lock, CheckCircle2 } from 'lucide-react';
 import { StatCard } from '@/components/ui/stat-card';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { SecureReleaseMonitor } from '@/components/dashboard/SecureReleaseMonitor';
 import { useDemoSession } from '@/components/providers/demo-session-provider';
 import { UserRole } from '@/types';
 import { cn } from '@/lib/utils';
@@ -25,8 +26,8 @@ const SECURITY_STATUS = [
   { label: 'AES-256 Encryption', status: 'Active', phase: null },
   { label: 'SHA-256 Integrity', status: 'Active', phase: null },
   { label: 'Blockchain Ledger', status: 'Active', phase: null },
-  { label: 'Time-Lock Release', status: null, phase: 'Coming Soon' },
-  { label: 'QR Verification', status: null, phase: 'Coming Soon' },
+  { label: 'Time-Lock Release', status: 'Active', phase: 'Phase 6' },
+  { label: 'Emergency Revocation', status: 'Active', phase: 'Phase 6' },
 ];
 
 function getStatsForRole(role: UserRole) {
@@ -83,18 +84,19 @@ export default function DashboardPage() {
           <div className="lg:col-span-8 space-y-4">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-semibold text-blue-200">
               <ShieldCheck className="w-3.5 h-3.5 text-blue-300" />
-              <span>SECUREEXAM — Phases 1–5 Active</span>
+              <span>SECUREEXAM — All 6 Phases Active</span>
             </div>
             <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">
               Welcome back, {user?.full_name?.split(' ')[0] || 'User'}! 👋
             </h2>
             <p className="text-blue-100 text-sm leading-relaxed max-w-xl">
-              Your examination security platform is operational. Role-based access, AES-256 encryption, blockchain verification, and complete audit trails are active.
+              Time-locked secure paper distribution is active. AES-256 encryption, blockchain verification, server-side authorization gates, and audit trails are operational.
             </p>
             <div className="flex flex-wrap gap-2.5 text-xs font-semibold">
               <span className="bg-white/10 border border-white/20 px-3 py-1.5 rounded-xl">🛡 RBAC Active</span>
               <span className="bg-white/10 border border-white/20 px-3 py-1.5 rounded-xl">🔐 AES-256 Encryption</span>
               <span className="bg-white/10 border border-white/20 px-3 py-1.5 rounded-xl">⛓ Blockchain Verified</span>
+              <span className="bg-white/10 border border-white/20 px-3 py-1.5 rounded-xl">🔒 Time-Lock Active</span>
             </div>
           </div>
           <div className="lg:col-span-4 hidden lg:flex justify-end">
@@ -108,6 +110,9 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Secure Release Monitor (Phase 6) */}
+      <SecureReleaseMonitor />
 
       {/* Stats */}
       <div className="space-y-3">
@@ -179,7 +184,7 @@ export default function DashboardPage() {
           </div>
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Phases 1–5 Active
+            Phases 1–6 Active
           </span>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">

@@ -1,27 +1,34 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ShieldCheck, Filter, Search, User, Clock, Activity } from 'lucide-react';
+import { ShieldCheck, Filter, Search, User, Clock, Activity, Lock, Unlock, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const DEMO_AUDIT_LOGS = [
   { id: 'al-1', actor: 'Harsh Wagh (Super Admin)', email: 'admin@secureexam.demo', eventType: 'LOGIN', entity: 'Profile', desc: 'User logged in successfully via Google OAuth / Demo session', time: '2 mins ago', ip: '127.0.0.1' },
-  { id: 'al-2', actor: 'Prof. Rajesh Kumar (Exam Admin)', email: 'exam.admin@secureexam.demo', eventType: 'EXAM_CREATED', entity: 'Exam', desc: 'Created examination UE-CSE-2026-001 (Data Structures and Algorithms)', time: '15 mins ago', ip: '192.168.1.45' },
-  { id: 'al-3', actor: 'Dr. Ananya Sharma (Question Setter)', email: 'setter@secureexam.demo', eventType: 'PAPER_UPLOADED', entity: 'QuestionPaper', desc: 'Uploaded original PDF for paper QP-DSA-2026-001', time: '1 hr ago', ip: '192.168.1.88' },
-  { id: 'al-4', actor: 'System (Crypto Engine)', email: 'system@secureexam.internal', eventType: 'PAPER_ENCRYPTED', entity: 'QuestionPaper', desc: 'AES-256-GCM encryption applied to paper QP-DSA-2026-001. Envelope stored in Supabase Storage.', time: '1 hr ago', ip: 'internal' },
-  { id: 'al-5', actor: 'System (Blockchain Signer)', email: 'system@secureexam.internal', eventType: 'BLOCKCHAIN_REGISTERED', entity: 'BlockchainRecord', desc: 'Registered SHA-256 hash on-chain (Contract: 0x5FbD...aa3, Block #12842)', time: '55 mins ago', ip: 'internal' },
-  { id: 'al-6', actor: 'Principal V. S. Patil (College Admin)', email: 'college@secureexam.demo', eventType: 'EXAM_CENTER_ASSIGNED', entity: 'ExamCenterAssignment', desc: 'Assigned PICT as examination center for UE-CSE-2026-001', time: '3 hrs ago', ip: '172.16.0.12' },
-  { id: 'al-7', actor: 'Harsh Wagh (Super Admin)', email: 'admin@secureexam.demo', eventType: 'ROLE_CHANGED', entity: 'Profile', desc: 'Assigned EXAM_ADMIN role to user exam.admin@secureexam.demo', time: '4 hrs ago', ip: '127.0.0.1' },
+  { id: 'al-2', actor: 'Prof. Suresh Mehta (Invigilator)', email: 'invigilator@secureexam.demo', eventType: 'PAPER_ACCESSED', entity: 'QuestionPaper', desc: 'Accessed released paper QP-DSA-2026-001 at PICT Center 04. SHA-256 & Blockchain verified.', time: '10 mins ago', ip: '192.168.1.105' },
+  { id: 'al-3', actor: 'Prof. Suresh Mehta (Invigilator)', email: 'invigilator@secureexam.demo', eventType: 'ACCESS_DENIED', entity: 'QuestionPaper', desc: 'DENIED_EARLY: Attempted access to QP-DBMS-2026-001 at 08:43 AM before scheduled 09:00 AM release.', time: '15 mins ago', ip: '192.168.1.105' },
+  { id: 'al-4', actor: 'System (Release Engine)', email: 'system@secureexam.internal', eventType: 'PAPER_RELEASED', entity: 'paper_release_schedule', desc: 'Automated UTC release transition for QP-DSA-2026-001 (Data Structures and Algorithms).', time: '20 mins ago', ip: 'internal' },
+  { id: 'al-5', actor: 'Dr. Ananya Sharma (Question Setter)', email: 'setter@secureexam.demo', eventType: 'PAPER_UPLOADED', entity: 'QuestionPaper', desc: 'Uploaded original PDF for paper QP-DSA-2026-001', time: '1 hr ago', ip: '192.168.1.88' },
+  { id: 'al-6', actor: 'System (Crypto Engine)', email: 'system@secureexam.internal', eventType: 'PAPER_ENCRYPTED', entity: 'QuestionPaper', desc: 'AES-256-GCM encryption applied to paper QP-DSA-2026-001. Envelope stored in Supabase Storage.', time: '1 hr ago', ip: 'internal' },
+  { id: 'al-7', actor: 'System (Blockchain Signer)', email: 'system@secureexam.internal', eventType: 'BLOCKCHAIN_REGISTERED', entity: 'BlockchainRecord', desc: 'Registered SHA-256 hash on-chain (Contract: 0x5FbD...aa3, Block #12842)', time: '55 mins ago', ip: 'internal' },
+];
+
+const PAPER_ACCESS_ACTIVITY = [
+  { time: '09:00:04 AM', result: 'ALLOWED', user: 'Prof. Suresh Mehta (Invigilator)', paper: 'QP-DSA-2026-001', reason: 'Release time reached & authorization verified' },
+  { time: '09:00:12 AM', result: 'ALLOWED', user: 'Principal V. S. Patil (College Admin)', paper: 'QP-DSA-2026-001', reason: 'Center assignment verified' },
+  { time: '08:59:21 AM', result: 'DENIED_EARLY', user: 'Prof. Suresh Mehta (Invigilator)', paper: 'QP-DSA-2026-001', reason: 'Time-lock enforced (1m 39s early)' },
+  { time: '08:45:00 AM', result: 'DENIED_COLLEGE_MISMATCH', user: 'External Faculty', paper: 'QP-DSA-2026-001', reason: 'User not assigned to center' },
 ];
 
 const EVENT_COLOR_MAP: Record<string, string> = {
   LOGIN: 'bg-blue-100 text-blue-700 border-blue-200',
-  EXAM_CREATED: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  PAPER_ACCESSED: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  ACCESS_DENIED: 'bg-red-100 text-red-700 border-red-200',
+  PAPER_RELEASED: 'bg-purple-100 text-purple-700 border-purple-200',
   PAPER_UPLOADED: 'bg-indigo-100 text-indigo-700 border-indigo-200',
   PAPER_ENCRYPTED: 'bg-purple-100 text-purple-700 border-purple-200',
   BLOCKCHAIN_REGISTERED: 'bg-purple-100 text-purple-800 border-purple-300',
-  EXAM_CENTER_ASSIGNED: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  ROLE_CHANGED: 'bg-amber-100 text-amber-700 border-amber-200',
 };
 
 export default function AuditLogsPage() {
@@ -38,8 +45,36 @@ export default function AuditLogsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-extrabold text-slate-900">Immutable Audit Logs</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Append-only security and activity trail for compliance and forensic analysis</p>
+          <h1 className="text-xl font-extrabold text-slate-900">Immutable Audit Logs &amp; Access Activity</h1>
+          <p className="text-xs text-slate-500 mt-0.5">Append-only security and activity trail for compliance, forensic analysis, and time-lock verification</p>
+        </div>
+      </div>
+
+      {/* Paper Access Activity Monitor (Phase 6) */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-subtle p-5 space-y-3">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+          <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+            <Lock className="w-4 h-4 text-indigo-600" /> Paper Access Activity Stream
+          </h2>
+          <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-bold">LIVE STREAM</span>
+        </div>
+        <div className="divide-y divide-slate-100 text-xs">
+          {PAPER_ACCESS_ACTIVITY.map((item, idx) => (
+            <div key={idx} className="py-2.5 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-[11px] font-bold text-slate-400">{item.time}</span>
+                <span className={cn('font-mono text-[10px] font-bold px-2 py-0.5 rounded border', item.result === 'ALLOWED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200')}>
+                  {item.result}
+                </span>
+                <div>
+                  <span className="font-bold text-slate-900">{item.user}</span>
+                  <span className="text-slate-400 mx-1.5">•</span>
+                  <span className="font-mono text-blue-600">{item.paper}</span>
+                </div>
+              </div>
+              <span className="text-[11px] text-slate-500 text-right">{item.reason}</span>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -61,11 +96,11 @@ export default function AuditLogsPage() {
         >
           <option value="ALL">All Event Types</option>
           <option value="LOGIN">Login</option>
-          <option value="EXAM_CREATED">Exam Created</option>
+          <option value="PAPER_ACCESSED">Paper Accessed</option>
+          <option value="ACCESS_DENIED">Access Denied</option>
+          <option value="PAPER_RELEASED">Paper Released</option>
           <option value="PAPER_UPLOADED">Paper Uploaded</option>
-          <option value="PAPER_ENCRYPTED">Paper Encrypted</option>
           <option value="BLOCKCHAIN_REGISTERED">Blockchain Registered</option>
-          <option value="ROLE_CHANGED">Role Changed</option>
         </select>
       </div>
 
